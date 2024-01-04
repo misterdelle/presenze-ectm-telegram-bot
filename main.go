@@ -21,20 +21,16 @@ type score struct {
 type application struct {
 	client *tbot.Client
 	score
-	DSN string
-	DB  repository.DatabaseRepository
+	DSN         string
+	DB          repository.DatabaseRepository
+	WebHook     string
+	WebHookPort string
 }
 
 var (
 	app   application
 	bot   *tbot.Server
 	token string
-	// options = map[string]string{
-	// 	// choice : beats
-	// 	"paper":    "rock",
-	// 	"rock":     "scissors",
-	// 	"scissors": "paper",
-	// }
 )
 
 func init() {
@@ -46,6 +42,8 @@ func init() {
 	log.Println("Token: ", token)
 
 	app.DSN = os.Getenv("DSN")
+	app.WebHook = os.Getenv("WEBHOOK")
+	app.WebHookPort = os.Getenv("WEBHOOK_PORT")
 }
 
 func main() {
@@ -57,13 +55,15 @@ func main() {
 
 	app.DB = &db.PostgresDBRepo{DB: connRDBMS}
 
-	bot = tbot.New(token, tbot.WithWebhook("https://presenze-ectm.dellechiaie.it", ":4444"))
-	// bot = tbot.New(token)
+	if app.WebHook != "" {
+		bot = tbot.New(token, tbot.WithWebhook(app.WebHook, app.WebHookPort))
+	} else {
+		bot = tbot.New(token)
+	}
+
 	app.client = bot.Client()
 	bot.HandleMessage("/start", app.startHandler)
 	bot.HandleMessage("/insert", app.insertHandler)
-	// bot.HandleMessage("/score", app.scoreHandler)
-	// bot.HandleMessage("/reset", app.resetHandler)
 	bot.HandleCallback(app.callbackHandler)
 	log.Fatal(bot.Start())
 }

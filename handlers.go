@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"presenze-ectm-telegram-bot/pkg/data"
 	"time"
 
@@ -19,22 +20,8 @@ func (a *application) startHandler(m *tbot.Message) {
 func (a *application) insertHandler(m *tbot.Message) {
 	buttons := makeButtons()
 	choosedOption := tbot.OptInlineKeyboardMarkup(buttons)
-	// a.client.DeleteMessage(m.Chat.ID, m.MessageID)
 	a.client.SendMessage(m.Chat.ID, "Scegli un'opzione:", choosedOption)
 }
-
-// // Handle the /score command here
-// func (a *application) scoreHandler(m *tbot.Message) {
-// 	msg := fmt.Sprintf("Scores:\nWins: %v\nDraws: %v\nLosses: %v", a.wins, a.draws, a.losses)
-// 	a.client.SendMessage(m.Chat.ID, msg)
-// }
-
-// // Handle the /reset command here
-// func (a *application) resetHandler(m *tbot.Message) {
-// 	a.wins, a.draws, a.losses = 0, 0, 0
-// 	msg := "Scores have been reset to 0."
-// 	a.client.SendMessage(m.Chat.ID, msg)
-// }
 
 // Handle buttton presses here
 func (a *application) callbackHandler(cq *tbot.CallbackQuery) {
@@ -43,22 +30,32 @@ func (a *application) callbackHandler(cq *tbot.CallbackQuery) {
 	var user *data.User
 
 	if cq.From.Username != "" {
+		log.Printf("Username: %s - LastName: %s - FirstName: %s - UserChoice: %s\n", cq.From.Username, cq.From.LastName, cq.From.FirstName, userChoice)
 		user, _ = a.DB.GetUserByTelegramUsername(cq.From.Username)
 	} else {
+		log.Printf("LastName: %s - FirstName: %s - UserChoice: %s\n", cq.From.LastName, cq.From.FirstName, userChoice)
 		user, _ = a.DB.GetUserByCognomeNome(cq.From.LastName, cq.From.FirstName)
 	}
-	userID := user.Userid
 
-	if userID > 0 {
-		var presence = data.Presence{DataPresenza: time.Now().Format("2006-01-02"),
-			Userid:       userID,
-			FlagPresenza: userChoice,
+	var msg string
+
+	if user != nil {
+		userID := user.Userid
+
+		if userID > 0 {
+			var presence = data.Presence{DataPresenza: time.Now().Format("2006-01-02"),
+				Userid:       userID,
+				FlagPresenza: userChoice,
+			}
+			a.DB.InsertPresence(presence)
+
+			msg = fmt.Sprintf("Registrato: %s per l'Utente: %s, %s", userChoice, user.Cognome, user.Nome)
+		} else {
+			log.Printf("Username: %s - LastName: %s - FirstName: %s NOT FOUND\n", cq.From.Username, cq.From.LastName, cq.From.FirstName)
+			msg = fmt.Sprintf("Utente: %s - LastName: %s - FirstName: %s NON TROVATO", cq.From.Username, cq.From.LastName, cq.From.FirstName)
 		}
-		a.DB.InsertPresence(presence)
 	}
 
-	// msg := a.draw(humanMove)
-	msg := fmt.Sprintf("Registrata la: %s per l'Utente: %s, %s", userChoice, user.Cognome, user.Nome)
 	a.client.DeleteMessage(cq.Message.Chat.ID, cq.Message.MessageID)
 	a.client.SendMessage(cq.Message.Chat.ID, msg)
 }
